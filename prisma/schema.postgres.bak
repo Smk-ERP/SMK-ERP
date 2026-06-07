@@ -1,0 +1,604 @@
+// The Signmaker ERP — Prisma schema
+// Phase 1 models active; Phase 2/3 models scaffolded so migrations carry forward.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// Enums
+// ────────────────────────────────────────────────────────────────────────────
+
+enum UserRole {
+  OWNER
+  ADMIN_MANAGER
+  SALES_MANAGER
+  SALES_STAFF
+  PRODUCTION_MANAGER
+  DESIGNER
+  PRODUCTION_STAFF
+  QC_STAFF
+  INSTALLER
+  FINANCE
+  STOCK
+  HR
+}
+
+enum CustomerType {
+  WALK_IN
+  RETURNING
+  FACEBOOK
+  WHATSAPP
+  TIKTOK
+  REFERRAL
+  CORPORATE
+  OTHER
+}
+
+enum Currency {
+  LAK
+  THB
+  USD
+}
+
+enum QuotationStatus {
+  DRAFT
+  SENT
+  APPROVED
+  REJECTED
+  CONVERTED
+  EXPIRED
+}
+
+enum JobStatus {
+  NEW
+  CONFIRMED
+  DESIGN
+  WAITING_MATERIAL
+  PRODUCTION
+  QC
+  REWORK
+  READY_TO_INSTALL
+  INSTALLING
+  DELIVERED
+  COMPLETED
+  CANCELLED
+}
+
+enum SignType {
+  LIT_LETTER_FRONT       // ป้ายอักษรไฟออกหน้า
+  LIT_LETTER_BACK        // ป้ายอักษรไฟออกหลัง
+  LIT_LETTER_EDGE        // ป้ายอักษรไฟออกขอบ
+  LIGHTBOX               // ป้ายกล่องไฟ
+  LIGHT_CABINET          // ป้ายตู้ไฟ
+  VINYL                  // ป้ายไวนิล
+  STAINLESS_EMBOSSED     // ป้ายสแตนเลสยกขอบ
+  ZINC_PAINTED           // ป้ายซิงค์ทำสี
+  PLASTWOOD_CUT          // ป้ายตัดพลาสวูด
+  ACRYLIC_CUT            // ป้ายตัดอะคริลิค
+  ACRYLIC_EMBOSSED       // ป้ายอะคริลิคยกขอบ
+  PLASTWOOD_ACRYLIC      // ป้ายพลาสวูดทับหน้าอะคริลิค
+  PLASTWOOD_3D           // ป้ายพลาสวูด 3D
+  NEON_FLEX              // ป้ายนีออนเฟล็กซ์
+  PRINT_3D               // 3D Printing
+  EVENT_BOOTH            // งานบูธ Event
+  STRUCTURE_FRAME        // โครงไม้/โครงเหล็ก
+  OTHER
+}
+
+enum UnitType {
+  MM
+  CM
+  M
+  SQM
+  SHEET
+  ROLL
+  KG
+  PCS
+  HOUR
+  DAY
+}
+
+enum InventoryTxnType {
+  RECEIVE
+  ISSUE
+  ADJUST
+  RETURN
+}
+
+enum MaterialRequestStatus {
+  REQUESTED
+  APPROVED
+  ISSUED
+  REJECTED
+}
+
+enum QCResultStatus {
+  PASS
+  FAIL
+}
+
+enum InstallationStatus {
+  SCHEDULED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum FinanceDocType {
+  QUOTATION
+  BILLING_NOTE
+  INVOICE
+  RECEIPT
+  PAYMENT_SLIP
+  MATERIAL_REQUEST
+  DELIVERY_NOTE
+  INSTALLATION_REPORT
+}
+
+enum NotificationType {
+  QUOTATION_APPROVED
+  JOB_CONFIRMED
+  MATERIAL_REQUESTED
+  MATERIAL_APPROVED
+  QC_FAILED
+  JOB_READY_TO_INSTALL
+  JOB_COMPLETED
+  PAYMENT_RECEIVED
+  GENERIC
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// User / Role / Permission
+// ────────────────────────────────────────────────────────────────────────────
+
+model User {
+  id            String   @id @default(cuid())
+  supabaseId    String?  @unique // links to auth.users.id from Supabase
+  email         String   @unique
+  fullName      String
+  phone         String?
+  role          UserRole @default(SALES_STAFF)
+  active        Boolean  @default(true)
+  language      String   @default("lo") // th / lo / en
+  avatarUrl     String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  quotationsCreated  Quotation[]         @relation("QuotationCreator")
+  jobsAssigned       Job[]               @relation("JobAssignee")
+  materialRequests   MaterialRequest[]
+  qcResults          QCResult[]
+  installations      Installation[]      @relation("InstallationOwner")
+  financeDocs        FinanceDocument[]   @relation("FinanceDocCreator")
+  notifications      Notification[]
+  auditLogs          AuditLog[]
+  kpiRecords         KPIRecord[]
+  jobStatusEntries   JobStatusHistory[]
+}
+
+model Permission {
+  id          String   @id @default(cuid())
+  code        String   @unique // e.g. "quotation.approve"
+  description String?
+  roles       UserRole[]
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// Customer CRM
+// ────────────────────────────────────────────────────────────────────────────
+
+model Customer {
+  id           String        @id @default(cuid())
+  code         String        @unique // e.g. CUS-000001
+  name         String
+  type         CustomerType  @default(WALK_IN)
+  companyName  String?
+  phone        String?
+  email        String?
+  whatsapp     String?
+  facebook     String?
+  tiktok       String?
+  taxId        String?
+  address      String?
+  city         String?
+  province     String?
+  country      String        @default("LA")
+  note         String?
+  logoUrl      String?
+  isReturning  Boolean       @default(false)
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  contacts     CustomerContact[]
+  quotations   Quotation[]
+  jobs         Job[]
+  attachments  FileAsset[]   @relation("CustomerFiles")
+}
+
+model CustomerContact {
+  id          String   @id @default(cuid())
+  customerId  String
+  customer    Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  name        String
+  position    String?
+  phone       String?
+  email       String?
+  isPrimary   Boolean  @default(false)
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// Quotation + Cost Calculation
+// ────────────────────────────────────────────────────────────────────────────
+
+model Quotation {
+  id              String           @id @default(cuid())
+  code            String           @unique // e.g. QUO-2026-0001
+  customerId      String
+  customer        Customer         @relation(fields: [customerId], references: [id])
+  createdById     String
+  createdBy       User             @relation("QuotationCreator", fields: [createdById], references: [id])
+  status          QuotationStatus  @default(DRAFT)
+  currency        Currency         @default(LAK)
+  language        String           @default("lo") // for PDF render
+  issueDate       DateTime         @default(now())
+  validUntil      DateTime?
+  subtotal        Decimal          @default(0) @db.Decimal(18, 2)
+  discountAmount  Decimal          @default(0) @db.Decimal(18, 2)
+  discountPercent Decimal          @default(0) @db.Decimal(5, 2)
+  taxPercent      Decimal          @default(0) @db.Decimal(5, 2)
+  taxAmount       Decimal          @default(0) @db.Decimal(18, 2)
+  total           Decimal          @default(0) @db.Decimal(18, 2)
+  marginActual    Decimal          @default(0) @db.Decimal(5, 2) // % margin after discount
+  note            String?
+  termsText       String?
+  approvedAt      DateTime?
+  rejectedReason  String?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  items           QuotationItem[]
+  job             Job?
+}
+
+model QuotationItem {
+  id            String     @id @default(cuid())
+  quotationId   String
+  quotation     Quotation  @relation(fields: [quotationId], references: [id], onDelete: Cascade)
+  sortOrder     Int        @default(0)
+  signType      SignType
+  title         String
+  description   String?
+  widthMm       Decimal?   @db.Decimal(10, 2)
+  heightMm      Decimal?   @db.Decimal(10, 2)
+  areaSqm       Decimal?   @db.Decimal(10, 4)
+  quantity      Decimal    @default(1) @db.Decimal(10, 2)
+  unit          UnitType   @default(PCS)
+  unitCost      Decimal    @default(0) @db.Decimal(18, 2) // computed cost per unit
+  unitPrice     Decimal    @default(0) @db.Decimal(18, 2) // selling price per unit
+  lineTotal     Decimal    @default(0) @db.Decimal(18, 2)
+  markupPercent Decimal    @default(30) @db.Decimal(5, 2)
+  costBreakdown Json?      // CostCalculation snapshot
+}
+
+// Stand-alone cost calculation (savable scratchpad)
+model CostCalculation {
+  id              String   @id @default(cuid())
+  name            String
+  signType        SignType
+  currency        Currency @default(LAK)
+  inputs          Json     // raw inputs (materials, labor, machines, etc.)
+  result          Json     // computed result
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// Job Management
+// ────────────────────────────────────────────────────────────────────────────
+
+model Job {
+  id              String        @id @default(cuid())
+  code            String        @unique // e.g. JOB-2026-0001
+  quotationId     String?       @unique
+  quotation       Quotation?    @relation(fields: [quotationId], references: [id])
+  customerId      String
+  customer        Customer      @relation(fields: [customerId], references: [id])
+  status          JobStatus     @default(NEW)
+  assignedToId    String?
+  assignedTo      User?         @relation("JobAssignee", fields: [assignedToId], references: [id])
+  team            String?       // free-text team label (Phase 1)
+  dueDate         DateTime?
+  productionNote  String?
+  installNote     String?
+  internalNote    String?
+  customerOk      Boolean       @default(false)
+  customerOkAt    DateTime?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  statusHistory   JobStatusHistory[]
+  attachments     JobAttachment[]
+  materialReqs    MaterialRequest[]
+  qcChecks        QCChecklist[]
+  installations   Installation[]
+  inventoryTxns   InventoryTransaction[]
+}
+
+model JobStatusHistory {
+  id        String    @id @default(cuid())
+  jobId     String
+  job       Job       @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  fromStatus JobStatus?
+  toStatus  JobStatus
+  changedById String?
+  changedBy User?     @relation(fields: [changedById], references: [id])
+  note      String?
+  changedAt DateTime  @default(now())
+}
+
+model JobAttachment {
+  id        String   @id @default(cuid())
+  jobId     String
+  job       Job      @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  fileAssetId String
+  fileAsset FileAsset @relation(fields: [fileAssetId], references: [id])
+  caption   String?
+  createdAt DateTime @default(now())
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// Inventory & Material Request (Phase 2 — scaffolded)
+// ────────────────────────────────────────────────────────────────────────────
+
+model Material {
+  id             String   @id @default(cuid())
+  code           String   @unique
+  name           String
+  category       String?
+  unit           UnitType
+  unitCost       Decimal  @default(0) @db.Decimal(18, 2)
+  currency       Currency @default(THB)
+  stockQty       Decimal  @default(0) @db.Decimal(18, 4)
+  reorderLevel   Decimal  @default(0) @db.Decimal(18, 4)
+  active         Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  transactions   InventoryTransaction[]
+  requestItems   MaterialRequestItem[]
+}
+
+model InventoryTransaction {
+  id          String           @id @default(cuid())
+  materialId  String
+  material    Material         @relation(fields: [materialId], references: [id])
+  type        InventoryTxnType
+  quantity    Decimal          @db.Decimal(18, 4)
+  unit        UnitType
+  unitCost    Decimal?         @db.Decimal(18, 2)
+  jobId       String?
+  job         Job?             @relation(fields: [jobId], references: [id])
+  note        String?
+  createdAt   DateTime         @default(now())
+}
+
+model MaterialRequest {
+  id          String                  @id @default(cuid())
+  code        String                  @unique
+  jobId       String
+  job         Job                     @relation(fields: [jobId], references: [id])
+  requestedById String
+  requestedBy User                    @relation(fields: [requestedById], references: [id])
+  status      MaterialRequestStatus   @default(REQUESTED)
+  note        String?
+  createdAt   DateTime                @default(now())
+  updatedAt   DateTime                @updatedAt
+
+  items       MaterialRequestItem[]
+}
+
+model MaterialRequestItem {
+  id           String           @id @default(cuid())
+  requestId    String
+  request      MaterialRequest  @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  materialId   String
+  material     Material         @relation(fields: [materialId], references: [id])
+  quantity     Decimal          @db.Decimal(18, 4)
+  unit         UnitType
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// QC + Installation (Phase 2 — scaffolded)
+// ────────────────────────────────────────────────────────────────────────────
+
+model QCChecklist {
+  id          String     @id @default(cuid())
+  jobId       String
+  job         Job        @relation(fields: [jobId], references: [id])
+  items       Json       // [{label, pass, note}]
+  createdAt   DateTime   @default(now())
+  result      QCResult?
+}
+
+model QCResult {
+  id           String          @id @default(cuid())
+  checklistId  String          @unique
+  checklist    QCChecklist     @relation(fields: [checklistId], references: [id])
+  status       QCResultStatus
+  inspectedById String
+  inspectedBy  User            @relation(fields: [inspectedById], references: [id])
+  photos       Json?
+  note         String?
+  inspectedAt  DateTime        @default(now())
+
+  rework       ReworkTask?
+}
+
+model ReworkTask {
+  id          String   @id @default(cuid())
+  qcResultId  String   @unique
+  qcResult    QCResult @relation(fields: [qcResultId], references: [id])
+  description String
+  resolved    Boolean  @default(false)
+  resolvedAt  DateTime?
+  createdAt   DateTime @default(now())
+}
+
+model Installation {
+  id          String              @id @default(cuid())
+  jobId       String
+  job         Job                 @relation(fields: [jobId], references: [id])
+  ownerId     String
+  owner       User                @relation("InstallationOwner", fields: [ownerId], references: [id])
+  status      InstallationStatus  @default(SCHEDULED)
+  scheduledAt DateTime?
+  completedAt DateTime?
+  beforePhotos Json?
+  afterPhotos  Json?
+  signatureUrl String?
+  note        String?
+  createdAt   DateTime            @default(now())
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// Finance & Payments (Phase 3 — scaffolded for PDF export)
+// ────────────────────────────────────────────────────────────────────────────
+
+model FinanceDocument {
+  id           String          @id @default(cuid())
+  code         String          @unique
+  docType      FinanceDocType
+  jobId        String?
+  customerId   String?
+  currency     Currency        @default(LAK)
+  language     String          @default("lo")
+  amount       Decimal         @db.Decimal(18, 2)
+  taxAmount    Decimal         @default(0) @db.Decimal(18, 2)
+  total        Decimal         @db.Decimal(18, 2)
+  payload      Json            // line items / context for PDF
+  createdById  String
+  createdBy    User            @relation("FinanceDocCreator", fields: [createdById], references: [id])
+  issuedAt     DateTime        @default(now())
+  paidAt       DateTime?
+  pdfUrl       String?
+  payments     Payment[]
+}
+
+model Payment {
+  id              String          @id @default(cuid())
+  financeDocId    String
+  financeDoc      FinanceDocument @relation(fields: [financeDocId], references: [id])
+  amount          Decimal         @db.Decimal(18, 2)
+  currency        Currency
+  method          String
+  reference       String?
+  receivedAt      DateTime        @default(now())
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// KPI / Incentive (Phase 3 — scaffolded)
+// ────────────────────────────────────────────────────────────────────────────
+
+model KPIRecord {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+  period      String   // 2026-05, 2026-Q2, 2026-H1, 2026
+  kpiScore    Decimal  @db.Decimal(5, 2)
+  kbiScore    Decimal  @db.Decimal(5, 2)
+  totalScore  Decimal  @db.Decimal(5, 2)
+  salesAmount Decimal? @db.Decimal(18, 2)
+  commission  Decimal? @db.Decimal(18, 2)
+  note        String?
+  createdAt   DateTime @default(now())
+}
+
+model IncentivePlan {
+  id            String   @id @default(cuid())
+  name          String
+  role          UserRole
+  weights       Json     // {kpi: 70, kbi: 30}
+  tiers         Json     // [{salesLak: 600_000_000, percent: 100}, ...]
+  active        Boolean  @default(true)
+  createdAt     DateTime @default(now())
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// Misc: Notifications, Audit, File assets, Currency, Unit, Translation
+// ────────────────────────────────────────────────────────────────────────────
+
+model Notification {
+  id        String           @id @default(cuid())
+  userId    String
+  user      User             @relation(fields: [userId], references: [id])
+  type      NotificationType
+  title     String
+  body      String?
+  link      String?
+  read      Boolean          @default(false)
+  createdAt DateTime         @default(now())
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id])
+  action    String   // e.g. "quotation.update"
+  entity    String   // e.g. "Quotation"
+  entityId  String?
+  before    Json?
+  after     Json?
+  ip        String?
+  createdAt DateTime @default(now())
+}
+
+model FileAsset {
+  id          String   @id @default(cuid())
+  url         String
+  storageKey  String?
+  mimeType    String?
+  sizeBytes   Int?
+  caption     String?
+  uploaderId  String?
+  createdAt   DateTime @default(now())
+
+  customers   Customer[] @relation("CustomerFiles")
+  jobAttachments JobAttachment[]
+}
+
+model CurrencyRate {
+  id        String   @id @default(cuid())
+  from      Currency
+  to        Currency
+  rate      Decimal  @db.Decimal(18, 6)
+  asOf      DateTime @default(now())
+
+  @@unique([from, to, asOf])
+}
+
+model UnitConversion {
+  id      String   @id @default(cuid())
+  from    UnitType
+  to      UnitType
+  factor  Decimal  @db.Decimal(18, 6)
+
+  @@unique([from, to])
+}
+
+model TranslationSetting {
+  id        String  @id @default(cuid())
+  namespace String
+  key       String
+  th        String?
+  lo        String?
+  en        String?
+
+  @@unique([namespace, key])
+}

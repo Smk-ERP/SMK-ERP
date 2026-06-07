@@ -1,0 +1,174 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ──────────────────────────────────────────────────────────────────────────
+   Lao fonts — Saysettha OT (primary) → Phetsarath OT → Noto Sans Lao (web)
+   ────────────────────────────────────────────────────────────────────────── */
+@font-face {
+  font-family: "Saysettha OT";
+  src: url("/fonts/Saysettha-Regular.ttf") format("truetype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Saysettha OT";
+  src: url("/fonts/Saysettha-Bold.ttf") format("truetype"),
+       url("/fonts/Saysettha-Regular.ttf") format("truetype");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Phetsarath OT";
+  src: url("/fonts/PhetsarathOT.woff2") format("woff2"),
+       url("/fonts/PhetsarathOT.woff") format("woff"),
+       url("/fonts/PhetsarathOT.ttf") format("truetype");
+  font-weight: 400 700;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Noto Sans Lao";
+  src: url("/fonts/NotoSansLao-Regular.ttf") format("truetype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Noto Sans Lao";
+  src: url("/fonts/NotoSansLao-Bold.ttf") format("truetype");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Sarabun";
+  src: url("/fonts/Sarabun-Regular.ttf") format("truetype");
+  font-weight: 400;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Sarabun";
+  src: url("/fonts/Sarabun-Bold.ttf") format("truetype");
+  font-weight: 700;
+  font-display: swap;
+}
+
+:root {
+  /* Font stacks */
+  --font-th: "Sarabun", "Noto Sans Thai", -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-en: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Helvetica Neue", Arial, sans-serif;
+  /* Latin & symbol fallback added at the end so currency glyphs (₭, ฿) the Lao fonts lack still render */
+  --font-lo: "Saysettha OT", "Phetsarath OT", "Noto Sans Lao", -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+
+  /* shadcn slate base */
+  --background: 0 0% 100%;
+  --foreground: 222 47% 11%;
+  --card: 0 0% 100%;
+  --card-foreground: 222 47% 11%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 222 47% 11%;
+
+  /* Brand: turquoise primary, dark navy text contrast */
+  --primary: 187 86% 43%;            /* cyan-600 */
+  --primary-foreground: 0 0% 100%;
+  --secondary: 210 40% 96%;
+  --secondary-foreground: 222 47% 11%;
+  --muted: 210 40% 96%;
+  --muted-foreground: 215 16% 47%;
+  --accent: 174 76% 40%;             /* teal-500 */
+  --accent-foreground: 0 0% 100%;
+  --destructive: 0 84% 60%;
+  --destructive-foreground: 0 0% 100%;
+  --border: 214 32% 91%;
+  --input: 214 32% 91%;
+  --ring: 187 86% 43%;
+  --radius: 0.75rem;
+}
+
+.dark {
+  --background: 222 47% 6%;
+  --foreground: 210 40% 98%;
+  --card: 222 47% 8%;
+  --card-foreground: 210 40% 98%;
+  --popover: 222 47% 8%;
+  --popover-foreground: 210 40% 98%;
+  --primary: 187 86% 53%;
+  --primary-foreground: 222 47% 6%;
+  --secondary: 217 33% 17%;
+  --secondary-foreground: 210 40% 98%;
+  --muted: 217 33% 17%;
+  --muted-foreground: 215 20% 65%;
+  --accent: 174 76% 45%;
+  --accent-foreground: 222 47% 6%;
+  --destructive: 0 63% 50%;
+  --destructive-foreground: 0 0% 100%;
+  --border: 217 33% 17%;
+  --input: 217 33% 17%;
+  --ring: 187 86% 53%;
+}
+
+* { @apply border-border; }
+
+body {
+  @apply bg-background text-foreground antialiased;
+  font-family: var(--font-lo);
+}
+
+html[lang="th"] body { font-family: var(--font-th); }
+html[lang="lo"] body { font-family: var(--font-lo); }
+
+.lang-lo { font-family: var(--font-lo); }
+.lang-th { font-family: var(--font-th); }
+.lang-en { font-family: var(--font-en); }
+
+/* Larger, friendlier inputs for staff who aren't tech-savvy */
+input, button, select, textarea {
+  font-size: 16px;
+}
+
+/* Brand gradient utility */
+.brand-gradient {
+  background: linear-gradient(135deg, #0B1F3A 0%, #0E3A5E 45%, #06B6D4 100%);
+}
+
+/* Brand gradient — softer for tabs / chips */
+.brand-gradient-soft {
+  background: linear-gradient(135deg, #06B6D4 0%, #14B8A6 50%, #0E3A5E 100%);
+}
+
+/* Brand gradient text — for active tabs/heading accents */
+.brand-gradient-text {
+  background: linear-gradient(135deg, #06B6D4 0%, #14B8A6 50%, #0B1F3A 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+}
+
+/* Bottom-border gradient for tab indicators */
+.tab-active-gradient {
+  background-image: linear-gradient(90deg, #06B6D4 0%, #14B8A6 50%, #0B1F3A 100%);
+  background-repeat: no-repeat;
+  background-position: 0 100%;
+  background-size: 100% 3px;
+}
+
+/* Status badge palette helpers */
+.badge-draft       { @apply bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300; }
+.badge-sent        { @apply bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300; }
+.badge-approved    { @apply bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300; }
+.badge-rejected    { @apply bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300; }
+.badge-converted   { @apply bg-cyan-100 text-cyan-700 dark:bg-cyan-900/40 dark:text-cyan-300; }
+.badge-expired     { @apply bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300; }
+.badge-progress    { @apply bg-cyan-100 text-cyan-700 dark:bg-cyan-900/40 dark:text-cyan-300; }
+.badge-warning     { @apply bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300; }
+.badge-success     { @apply bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300; }
+.badge-danger      { @apply bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300; }
+
+/* TV View typographic scale (for /production board in Phase 2) */
+.tv-view * { font-size: 1.25rem; }
+.tv-view h1, .tv-view h2 { font-size: 2rem; }

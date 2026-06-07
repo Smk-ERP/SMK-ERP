@@ -1,0 +1,584 @@
+// The Signmaker ERP — Prisma schema (SQLite local variant)
+// Original Postgres schema with native enums lives at schema.postgres.bak.
+// SQLite doesn't support enums or @db.Decimal — enums are String columns,
+// numeric columns use Decimal (Prisma runtime type) without DB precision hints.
+// Valid string values are documented inline AND in src/lib/enums.ts.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// User / Role / Permission
+// UserRole: OWNER, ADMIN_MANAGER, SALES_MANAGER, SALES_STAFF, PRODUCTION_MANAGER,
+//           DESIGNER, PRODUCTION_STAFF, QC_STAFF, INSTALLER, FINANCE, STOCK, HR
+// ────────────────────────────────────────────────────────────────────────────
+
+model User {
+  id            String   @id @default(cuid())
+  supabaseId    String?  @unique
+  email         String   @unique
+  fullName      String
+  phone         String?
+  role          String   @default("SALES_STAFF") // UserRole
+  active        Boolean  @default(true)
+  language      String   @default("lo")
+  avatarUrl      String?
+  telegramChatId String?  @unique  // Telegram chat ID for notifications & bot
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  quotationsCreated  Quotation[]         @relation("QuotationCreator")
+  jobsAssigned       Job[]               @relation("JobAssignee")
+  materialRequests   MaterialRequest[]
+  qcResults          QCResult[]
+  installations      Installation[]      @relation("InstallationOwner")
+  financeDocs        FinanceDocument[]   @relation("FinanceDocCreator")
+  notifications      Notification[]
+  auditLogs          AuditLog[]
+  kpiRecords         KPIRecord[]
+  jobStatusEntries   JobStatusHistory[]
+  purchaseOrders     PurchaseOrder[]     @relation("POCreator")
+}
+
+model Permission {
+  id          String  @id @default(cuid())
+  code        String  @unique
+  description String?
+  roles       String  @default("") // CSV of UserRole values
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// Customer CRM
+// CustomerType: WALK_IN, RETURNING, FACEBOOK, WHATSAPP, TIKTOK, REFERRAL, CORPORATE, OTHER
+// ────────────────────────────────────────────────────────────────────────────
+
+model Customer {
+  id           String   @id @default(cuid())
+  code         String   @unique
+  name         String
+  type         String   @default("WALK_IN") // CustomerType
+  companyName  String?
+  phone        String?
+  email        String?
+  whatsapp     String?
+  facebook     String?
+  tiktok       String?
+  taxId        String?
+  address      String?
+  city         String?
+  province     String?
+  country      String   @default("LA")
+  note         String?
+  logoUrl      String?
+  isReturning  Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  contacts     CustomerContact[]
+  quotations   Quotation[]
+  jobs         Job[]
+  attachments  FileAsset[] @relation("CustomerFiles")
+}
+
+model CustomerContact {
+  id          String   @id @default(cuid())
+  customerId  String
+  customer    Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  name        String
+  position    String?
+  phone       String?
+  email       String?
+  isPrimary   Boolean  @default(false)
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// Quotation
+// QuotationStatus: DRAFT, SENT, APPROVED, REJECTED, CONVERTED, EXPIRED
+// Currency: LAK, THB, USD
+// SignType: see src/lib/enums.ts (17 types)
+// UnitType: MM, CM, M, SQM, SHEET, ROLL, KG, PCS, HOUR, DAY
+// ────────────────────────────────────────────────────────────────────────────
+
+model Quotation {
+  id              String   @id @default(cuid())
+  code            String   @unique
+  customerId      String
+  customer        Customer @relation(fields: [customerId], references: [id])
+  createdById     String
+  createdBy       User     @relation("QuotationCreator", fields: [createdById], references: [id])
+  status          String   @default("DRAFT") // QuotationStatus
+  currency        String   @default("LAK")   // Currency
+  language        String   @default("lo")
+  issueDate       DateTime @default(now())
+  validUntil      DateTime?
+  subtotal        Decimal  @default(0)
+  discountAmount  Decimal  @default(0)
+  discountPercent Decimal  @default(0)
+  taxPercent      Decimal  @default(0)
+  taxAmount       Decimal  @default(0)
+  total           Decimal  @default(0)
+  marginActual    Decimal  @default(0)
+  note            String?
+  termsText       String?
+  approvedAt      DateTime?
+  rejectedReason  String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  items           QuotationItem[]
+  job             Job?
+}
+
+model QuotationItem {
+  id            String    @id @default(cuid())
+  quotationId   String
+  quotation     Quotation @relation(fields: [quotationId], references: [id], onDelete: Cascade)
+  sortOrder     Int       @default(0)
+  signType      String    // SignType
+  title         String
+  description   String?
+  widthMm       Decimal?
+  heightMm      Decimal?
+  areaSqm       Decimal?
+  quantity      Decimal   @default(1)
+  unit          String    @default("PCS") // UnitType
+  unitCost      Decimal   @default(0)
+  unitPrice     Decimal   @default(0)
+  lineTotal     Decimal   @default(0)
+  markupPercent Decimal   @default(30)
+  costBreakdown String?
+}
+
+model CostCalculation {
+  id        String   @id @default(cuid())
+  name      String
+  signType  String   // SignType
+  currency  String   @default("LAK")
+  inputs    String
+  result    String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// Job Management
+// JobStatus: NEW, CONFIRMED, DESIGN, WAITING_MATERIAL, PRODUCTION, QC, REWORK,
+//            READY_TO_INSTALL, INSTALLING, DELIVERED, COMPLETED, CANCELLED
+// ────────────────────────────────────────────────────────────────────────────
+
+model Job {
+  id              String     @id @default(cuid())
+  code            String     @unique
+  quotationId     String?    @unique
+  quotation       Quotation? @relation(fields: [quotationId], references: [id])
+  customerId      String
+  customer        Customer   @relation(fields: [customerId], references: [id])
+  status          String     @default("NEW") // JobStatus
+  priority        String     @default("MEDIUM") // LOW / MEDIUM / HIGH / URGENT
+  assignedToId    String?
+  assignedTo      User?      @relation("JobAssignee", fields: [assignedToId], references: [id])
+  team            String?
+  dueDate         DateTime?
+  productionNote  String?
+  installNote     String?
+  internalNote    String?
+  customerOk      Boolean    @default(false)
+  customerOkAt    DateTime?
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+
+  statusHistory   JobStatusHistory[]
+  attachments     JobAttachment[]
+  materialReqs    MaterialRequest[]
+  qcChecks        QCChecklist[]
+  installations   Installation[]
+  inventoryTxns   InventoryTransaction[]
+}
+
+model JobStatusHistory {
+  id          String    @id @default(cuid())
+  jobId       String
+  job         Job       @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  fromStatus  String?   // JobStatus
+  toStatus    String    // JobStatus
+  changedById String?
+  changedBy   User?     @relation(fields: [changedById], references: [id])
+  note        String?
+  changedAt   DateTime  @default(now())
+}
+
+model JobAttachment {
+  id          String    @id @default(cuid())
+  jobId       String
+  job         Job       @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  fileAssetId String
+  fileAsset   FileAsset @relation(fields: [fileAssetId], references: [id])
+  caption     String?
+  createdAt   DateTime  @default(now())
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// Inventory (Phase 2 scaffolding)
+// InventoryTxnType: RECEIVE, ISSUE, ADJUST, RETURN
+// MaterialRequestStatus: REQUESTED, APPROVED, ISSUED, REJECTED
+// ────────────────────────────────────────────────────────────────────────────
+
+model Material {
+  id           String   @id @default(cuid())
+  code         String   @unique
+  name         String
+  category     String?
+  unit         String   // UnitType
+  unitCost     Decimal  @default(0)
+  currency     String   @default("THB")
+  stockQty     Decimal  @default(0)
+  reorderLevel Decimal  @default(0)
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  transactions InventoryTransaction[]
+  requestItems MaterialRequestItem[]
+}
+
+model InventoryTransaction {
+  id         String   @id @default(cuid())
+  materialId String
+  material   Material @relation(fields: [materialId], references: [id])
+  type       String   // InventoryTxnType
+  quantity   Decimal
+  unit       String   // UnitType
+  unitCost   Decimal?
+  jobId      String?
+  job        Job?     @relation(fields: [jobId], references: [id])
+  note       String?
+  createdAt  DateTime @default(now())
+}
+
+model MaterialRequest {
+  id            String   @id @default(cuid())
+  code          String   @unique
+  jobId         String
+  job           Job      @relation(fields: [jobId], references: [id])
+  requestedById String
+  requestedBy   User     @relation(fields: [requestedById], references: [id])
+  status        String   @default("REQUESTED") // MaterialRequestStatus
+  note          String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  items         MaterialRequestItem[]
+}
+
+model MaterialRequestItem {
+  id         String          @id @default(cuid())
+  requestId  String
+  request    MaterialRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  materialId String
+  material   Material        @relation(fields: [materialId], references: [id])
+  quantity   Decimal
+  unit       String          // UnitType
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// QC + Installation (Phase 2 scaffolding)
+// QCResultStatus: PASS, FAIL
+// InstallationStatus: SCHEDULED, IN_PROGRESS, COMPLETED, CANCELLED
+// ────────────────────────────────────────────────────────────────────────────
+
+model QCChecklist {
+  id        String      @id @default(cuid())
+  jobId     String
+  job       Job         @relation(fields: [jobId], references: [id])
+  items     String
+  createdAt DateTime    @default(now())
+  result    QCResult?
+}
+
+model QCResult {
+  id            String      @id @default(cuid())
+  checklistId   String      @unique
+  checklist     QCChecklist @relation(fields: [checklistId], references: [id])
+  status        String      // QCResultStatus
+  inspectedById String
+  inspectedBy   User        @relation(fields: [inspectedById], references: [id])
+  photos        String?
+  note          String?
+  inspectedAt   DateTime    @default(now())
+
+  rework        ReworkTask?
+}
+
+model ReworkTask {
+  id          String   @id @default(cuid())
+  qcResultId  String   @unique
+  qcResult    QCResult @relation(fields: [qcResultId], references: [id])
+  description String
+  resolved    Boolean  @default(false)
+  resolvedAt  DateTime?
+  createdAt   DateTime @default(now())
+}
+
+model Installation {
+  id           String    @id @default(cuid())
+  jobId        String
+  job          Job       @relation(fields: [jobId], references: [id])
+  ownerId      String
+  owner        User      @relation("InstallationOwner", fields: [ownerId], references: [id])
+  status       String    @default("SCHEDULED") // InstallationStatus
+  scheduledAt  DateTime?
+  completedAt  DateTime?
+  beforePhotos String?
+  afterPhotos  String?
+  signatureUrl String?
+  note         String?
+  createdAt    DateTime  @default(now())
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// Finance & Payments (Phase 3 scaffolding)
+// FinanceDocType: QUOTATION, BILLING_NOTE, INVOICE, RECEIPT, PAYMENT_SLIP,
+//                 MATERIAL_REQUEST, DELIVERY_NOTE, INSTALLATION_REPORT
+// ────────────────────────────────────────────────────────────────────────────
+
+model FinanceDocument {
+  id          String   @id @default(cuid())
+  code        String   @unique
+  docType     String   // FinanceDocType
+  jobId       String?
+  customerId  String?
+  currency    String   @default("LAK")
+  language    String   @default("lo")
+  amount      Decimal
+  taxAmount   Decimal  @default(0)
+  total       Decimal
+  payload     String
+  createdById String
+  createdBy   User     @relation("FinanceDocCreator", fields: [createdById], references: [id])
+  issuedAt    DateTime @default(now())
+  paidAt      DateTime?
+  pdfUrl      String?
+  payments    Payment[]
+  schedules   PaymentSchedule[]
+}
+
+model Payment {
+  id           String          @id @default(cuid())
+  financeDocId String
+  financeDoc   FinanceDocument @relation(fields: [financeDocId], references: [id])
+  scheduleId   String?
+  schedule     PaymentSchedule? @relation(fields: [scheduleId], references: [id])
+  amount       Decimal
+  currency     String
+  method       String
+  reference    String?
+  receivedAt   DateTime        @default(now())
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// Payment Schedule — installment plan attached to a FinanceDocument
+// status: PENDING / PAID / PARTIAL / OVERDUE / CANCELLED
+// ────────────────────────────────────────────────────────────────────────────
+model PaymentSchedule {
+  id            String          @id @default(cuid())
+  financeDocId  String
+  financeDoc    FinanceDocument @relation(fields: [financeDocId], references: [id], onDelete: Cascade)
+  label         String          // "Deposit 50%" / "On delivery" / "Net 30" …
+  dueDate       DateTime
+  amount        Decimal
+  currency      String          @default("LAK")
+  status        String          @default("PENDING")
+  note          String?
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+
+  payments      Payment[]
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// Purchase Order — outgoing PO to suppliers (Phase 3)
+// PurchaseOrderStatus: DRAFT, SENT, PARTIAL, RECEIVED, CANCELLED
+// ────────────────────────────────────────────────────────────────────────────
+model PurchaseOrder {
+  id              String   @id @default(cuid())
+  code            String   @unique
+  supplierName    String
+  supplierAddress String?
+  supplierPhone   String?
+  supplierEmail   String?
+  supplierTaxId   String?
+  status          String   @default("DRAFT") // PurchaseOrderStatus
+  currency        String   @default("LAK")
+  language        String   @default("lo")
+  issueDate       DateTime @default(now())
+  expectedDate    DateTime?
+  receivedDate    DateTime?
+  subtotal        Decimal  @default(0)
+  taxPercent      Decimal  @default(0)
+  taxAmount       Decimal  @default(0)
+  shipping        Decimal  @default(0)
+  total           Decimal  @default(0)
+  note            String?
+  termsText       String?
+  // Optional links — for tracking who needed this material and which job it was for
+  materialRequestId String?
+  jobId             String?
+  createdById     String
+  createdBy       User     @relation("POCreator", fields: [createdById], references: [id])
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  items           PurchaseOrderItem[]
+}
+
+model PurchaseOrderItem {
+  id              String        @id @default(cuid())
+  purchaseOrderId String
+  purchaseOrder   PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+  sortOrder       Int           @default(0)
+  // Optional: link back to inventory item (auto-receive on PO completion)
+  materialId      String?
+  description     String        // free text — works even without Material link
+  quantity        Decimal
+  unit            String        // UnitType
+  unitPrice       Decimal       @default(0)
+  lineTotal       Decimal       @default(0)
+  receivedQty     Decimal       @default(0)
+  note            String?
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// Brand / Company settings — single-row table
+// Stores name, contact info, tax id, logo (data URL) used in every PDF.
+// ────────────────────────────────────────────────────────────────────────────
+model BrandSetting {
+  id           String   @id @default("singleton") // forced single row
+  companyName  String   @default("The Signmaker")
+  tagline      String?
+  address      String?
+  city         String?
+  province     String?
+  country      String   @default("Lao PDR")
+  phone        String?
+  email        String?
+  website      String?
+  taxId        String?
+  bankInfo     String?              // free-text bank account info shown on Invoice
+  logoUrl      String?              // data URL or remote URL
+  primaryColor String   @default("#06B6D4")
+  // CSV of doctype:roleLabel pairs for default signature slots, e.g.
+  // "QUOTATION:Sales,QUOTATION:Customer,INVOICE:Finance,INVOICE:Customer"
+  signatureConfig String @default("")
+  updatedAt    DateTime @updatedAt
+  updatedById  String?
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// KPI / Incentive (Phase 3 scaffolding)
+// ────────────────────────────────────────────────────────────────────────────
+
+model KPIRecord {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+  period      String
+  kpiScore    Decimal
+  kbiScore    Decimal
+  totalScore  Decimal
+  salesAmount Decimal?
+  commission  Decimal?
+  note        String?
+  createdAt   DateTime @default(now())
+}
+
+model IncentivePlan {
+  id        String   @id @default(cuid())
+  name      String
+  role      String   // UserRole
+  weights   String
+  tiers     String
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// Misc
+// NotificationType: QUOTATION_APPROVED, JOB_CONFIRMED, MATERIAL_REQUESTED,
+//                   MATERIAL_APPROVED, QC_FAILED, JOB_READY_TO_INSTALL,
+//                   JOB_COMPLETED, PAYMENT_RECEIVED, GENERIC
+// ────────────────────────────────────────────────────────────────────────────
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  type      String   // NotificationType
+  title     String
+  body      String?
+  link      String?
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id])
+  action    String
+  entity    String
+  entityId  String?
+  before    String?
+  after     String?
+  ip        String?
+  createdAt DateTime @default(now())
+}
+
+model FileAsset {
+  id             String   @id @default(cuid())
+  url            String
+  storageKey     String?
+  mimeType       String?
+  sizeBytes      Int?
+  caption        String?
+  uploaderId     String?
+  createdAt      DateTime @default(now())
+
+  customers      Customer[]      @relation("CustomerFiles")
+  jobAttachments JobAttachment[]
+}
+
+model CurrencyRate {
+  id   String   @id @default(cuid())
+  from String   // Currency
+  to   String   // Currency
+  rate Decimal
+  asOf DateTime @default(now())
+
+  @@unique([from, to, asOf])
+}
+
+model UnitConversion {
+  id     String  @id @default(cuid())
+  from   String  // UnitType
+  to     String  // UnitType
+  factor Decimal
+
+  @@unique([from, to])
+}
+
+model TranslationSetting {
+  id        String  @id @default(cuid())
+  namespace String
+  key       String
+  th        String?
+  lo        String?
+  en        String?
+
+  @@unique([namespace, key])
+}
