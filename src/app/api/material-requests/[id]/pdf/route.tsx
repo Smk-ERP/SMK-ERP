@@ -37,7 +37,7 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
     };
 
     const buffer = await renderToBuffer(<MaterialRequestPDF data={data} />);
-    return new NextResponse(buffer, {
+    return new NextResponse(new Uint8Array(buffer), {
       headers: {
         "Content-Type": "application/pdf",
         "Content-Disposition": `inline; filename="MR-${mr.code}.pdf"`,
