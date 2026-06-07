@@ -5,6 +5,8 @@ import { getCurrentUser, isDemoMode } from "@/lib/auth";
 import { getBrand } from "@/lib/brand";
 import { redirect } from "next/navigation";
 
+export const dynamic = "force-dynamic";
+
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const [user, brand] = await Promise.all([getCurrentUser(), getBrand()]);
   if (!user && !isDemoMode()) redirect("/login");
