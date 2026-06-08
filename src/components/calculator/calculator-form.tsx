@@ -14,7 +14,7 @@ import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { useI18n } from "@/lib/i18n/context";
-import { formatMoney, type CurrencyCode } from "@/lib/currency";
+import { formatMoney, convert, type CurrencyCode } from "@/lib/currency";
 
 const SIGN_TYPES: SignTypeKey[] = [
   "LIT_LETTER_FRONT","LIT_LETTER_BACK","LIT_LETTER_EDGE","LIGHTBOX","LIGHT_CABINET",
@@ -28,11 +28,15 @@ const MARKUP_PRESETS = [20, 30, 40, 45];
 export function CalculatorForm({
   initial,
   onResult,
-  onAddToQuotation
+  onAddToQuotation,
+  displayCurrency,
+  showCurrencySelector = true
 }: {
   initial?: Partial<CalcInput>;
   onResult?: (input: CalcInput, result: CalcResult) => void;
   onAddToQuotation?: (input: CalcInput, result: CalcResult) => void;
+  displayCurrency?: CurrencyCode;        // when provided, parent controls currency
+  showCurrencySelector?: boolean;        // hide selector when parent provides currency
 }) {
   const { t, locale } = useI18n();
 
@@ -67,7 +71,12 @@ export function CalculatorForm({
   };
   const setNum = (k: keyof CalcInput) => (e: any) => set(k)(e.target.value === "" ? undefined : Number(e.target.value));
 
-  const currency: CurrencyCode = "THB"; // calculator works in THB internally
+  // Calculator works in THB internally — convert results to display currency.
+  // Parent (e.g. quotation builder) can lock currency via displayCurrency prop;
+  // standalone /calculator page lets user pick from local state.
+  const [localCurrency, setLocalCurrency] = useState<CurrencyCode>("THB");
+  const currency: CurrencyCode = displayCurrency ?? localCurrency;
+  const $ = (v: number) => formatMoney(convert(v, "THB", currency), currency, locale);
 
   return (
     <div className="grid lg:grid-cols-3 gap-4">
@@ -220,26 +229,37 @@ export function CalculatorForm({
 
       {/* Result */}
       <Card className="lg:col-span-1 self-start sticky top-20">
-        <CardHeader><CardTitle>{t("calculator.totalCost")} / {t("calculator.sellingPrice")}</CardTitle></CardHeader>
+        <CardHeader className="flex-row items-center justify-between gap-2">
+          <CardTitle>{t("calculator.totalCost")} / {t("calculator.sellingPrice")}</CardTitle>
+          {showCurrencySelector && !displayCurrency && (
+            <Select
+              value={localCurrency}
+              onChange={(e) => setLocalCurrency(e.target.value as CurrencyCode)}
+              className="h-8 w-24 text-sm"
+            >
+              <option>THB</option><option>LAK</option><option>USD</option>
+            </Select>
+          )}
+        </CardHeader>
         <CardContent className="space-y-3 text-sm">
           <Row label={t("calculator.area")} value={`${result.areaSqm} m²  ×  ${input.quantity}`} />
           <hr />
-          <Row label="Material" value={formatMoney(result.material, currency, locale)} />
-          <Row label="Machine" value={formatMoney(result.machine, currency, locale)} />
-          <Row label="Labor" value={formatMoney(result.labor, currency, locale)} />
-          <Row label="Design" value={formatMoney(result.design, currency, locale)} />
-          <Row label="Install" value={formatMoney(result.install, currency, locale)} />
-          <Row label="Transport" value={formatMoney(result.transport, currency, locale)} />
-          <Row label="Electricity" value={formatMoney(result.electricity, currency, locale)} />
-          <Row label="Waste" value={formatMoney(result.waste, currency, locale)} />
-          <Row label="Overhead" value={formatMoney(result.overhead, currency, locale)} />
+          <Row label="Material" value={$(result.material)} />
+          <Row label="Machine" value={$(result.machine)} />
+          <Row label="Labor" value={$(result.labor)} />
+          <Row label="Design" value={$(result.design)} />
+          <Row label="Install" value={$(result.install)} />
+          <Row label="Transport" value={$(result.transport)} />
+          <Row label="Electricity" value={$(result.electricity)} />
+          <Row label="Waste" value={$(result.waste)} />
+          <Row label="Overhead" value={$(result.overhead)} />
           <hr />
-          <Row label={t("calculator.totalCost")} value={formatMoney(result.costBeforeProfit, currency, locale)} strong />
-          <Row label="Profit" value={formatMoney(result.profit, currency, locale)} />
-          {input.hasTax && <Row label="VAT" value={formatMoney(result.tax, currency, locale)} />}
+          <Row label={t("calculator.totalCost")} value={$(result.costBeforeProfit)} strong />
+          <Row label="Profit" value={$(result.profit)} />
+          {input.hasTax && <Row label="VAT" value={$(result.tax)} />}
           <hr />
-          <Row label={t("calculator.sellingPrice")} value={formatMoney(result.priceFinal, currency, locale)} strong tone="primary" />
-          <Row label="Per unit" value={formatMoney(result.pricePerUnit, currency, locale)} />
+          <Row label={t("calculator.sellingPrice")} value={$(result.priceFinal)} strong tone="primary" />
+          <Row label="Per unit" value={$(result.pricePerUnit)} />
           <Row label={t("calculator.marginActual")} value={`${result.marginActual}%`} tone="success" />
 
           {onAddToQuotation && (

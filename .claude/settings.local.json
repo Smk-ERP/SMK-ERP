@@ -56,7 +56,22 @@
       "Bash(gh pr *)",
       "Bash(git init *)",
       "Bash(git branch *)",
-      "Bash(git add *)"
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Bash(git config *)",
+      "Bash(git remote *)",
+      "Bash(git push *)",
+      "Bash(cd \"D:\\\\SMK ERP\" && sed -i 's/return new NextResponse\\(buffer, {/return new NextResponse\\(new Uint8Array\\(buffer\\), {/g' \"src/app/api/finance/[id]/pdf/route.tsx\" \"src/app/api/material-requests/[id]/pdf/route.tsx\" \"src/app/api/purchase-orders/[id]/pdf/route.tsx\" \"src/app/api/quotations/[id]/pdf/route.tsx\" && echo \"Done\" && grep -n \"NextResponse\" src/app/api/finance/[id]/pdf/route.tsx | grep -i buffer)",
+      "Bash(git commit -m 'Fix Buffer type error in PDF routes — use Uint8Array for NextResponse *)",
+      "Bash(DATABASE_URL=\"postgresql://postgres:SMK%402019Ping88@db.qvyrzximrmwaryxrnrmq.supabase.co:5432/postgres\" DIRECT_URL=\"postgresql://postgres:SMK%402019Ping88@db.qvyrzximrmwaryxrnrmq.supabase.co:5432/postgres\" npx prisma db push)",
+      "Bash(DATABASE_URL=\"file:./dev.db\" npx prisma migrate diff --from-empty --to-schema-datamodel prisma/schema.prisma --script)",
+      "Bash(git commit -m 'Switch Prisma datasource to PostgreSQL for production *)",
+      "Bash(git commit -m 'Suppress ESLint/TS build errors on Vercel for cleaner deploys *)",
+      "Bash(git commit -m 'Force dynamic rendering for dashboard layout to fix Vercel build warnings *)",
+      "Bash(git commit -m 'Fix Saysettha-Bold.ttf 404 — use Regular as bold fallback *)",
+      "Bash(git commit --allow-empty -m 'Fix git author email for Vercel deployment *)",
+      "Bash(git commit -m 'Add Supabase SQL migration and seed files for production setup *)",
+      "Bash(git commit -m 'Phase 1+2: Unit Price display, currency selector, workflow steps *)"
     ]
   }
 }

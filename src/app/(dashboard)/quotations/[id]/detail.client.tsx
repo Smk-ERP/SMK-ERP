@@ -12,6 +12,7 @@ import { useI18n } from "@/lib/i18n/context";
 import { formatMoney, type CurrencyCode } from "@/lib/currency";
 import { Send, Check, X, ArrowRightCircle, FileDown, Briefcase } from "lucide-react";
 import { fmtDate } from "@/lib/utils";
+import { WorkflowSteps, quotationLifecycle, quotationStatusToStep } from "@/components/ui/workflow-steps";
 
 interface QDTO {
   id: string;
@@ -120,6 +121,16 @@ export function QuotationDetail({ q }: { q: QDTO }) {
       />
 
       {err && <p className="text-rose-600 text-sm mb-3">{err}</p>}
+
+      {/* Workflow lifecycle indicator */}
+      <Card className="mb-4">
+        <CardContent className="pt-4">
+          <WorkflowSteps
+            steps={quotationLifecycle(locale)}
+            currentKey={quotationStatusToStep(q.status, false, false, false)}
+          />
+        </CardContent>
+      </Card>
 
       <div className="grid lg:grid-cols-3 gap-4 mb-4">
         <Card className="lg:col-span-2">

@@ -10,6 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/ui/page-header";
 import { CalculatorForm } from "@/components/calculator/calculator-form";
+import { WorkflowSteps, quotationLifecycle } from "@/components/ui/workflow-steps";
 import { useI18n } from "@/lib/i18n/context";
 import { formatMoney, convert, type CurrencyCode } from "@/lib/currency";
 import { Plus, Trash2 } from "lucide-react";
@@ -126,6 +127,13 @@ export function QuotationBuilder({ customers, initialCustomerId }: { customers: 
         ]}
       />
 
+      {/* Workflow stepper — new quote is at DRAFT stage */}
+      <Card className="mb-4">
+        <CardContent className="pt-4">
+          <WorkflowSteps steps={quotationLifecycle(locale)} currentKey="DRAFT" />
+        </CardContent>
+      </Card>
+
       <Card className="mb-4">
         <CardHeader><CardTitle>Header</CardTitle></CardHeader>
         <CardContent className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
@@ -162,7 +170,7 @@ export function QuotationBuilder({ customers, initialCustomerId }: { customers: 
       <Card className="mb-4">
         <CardHeader><CardTitle>{t("calculator.title")}</CardTitle></CardHeader>
         <CardContent>
-          <CalculatorForm onAddToQuotation={addItem} />
+          <CalculatorForm onAddToQuotation={addItem} displayCurrency={currency} />
         </CardContent>
       </Card>
 
@@ -196,6 +204,9 @@ export function QuotationBuilder({ customers, initialCustomerId }: { customers: 
                     </td>
                     <td className="text-right">
                       <Input type="number" value={it.unitPrice} onChange={(e) => updateItem(i, { unitPrice: Number(e.target.value) })} className="h-9 w-32 text-right" />
+                      <div className="text-xs text-muted-foreground mt-0.5">
+                        = {formatMoney(it.unitPrice, currency, locale)}
+                      </div>
                     </td>
                     <td className="text-right font-medium">{formatMoney(it.unitPrice * it.quantity, currency, locale)}</td>
                     <td className="text-right">
