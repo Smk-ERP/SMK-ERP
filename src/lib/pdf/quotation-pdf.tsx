@@ -40,7 +40,6 @@ export interface QuotationPDFData {
   note?: string | null;
   termsText?: string | null;
   brand: BrandSnapshot;
-  paymentQrDataUrl?: string | null;   // PNG data URL for "scan to pay" QR (shown on invoices)
 }
 
 function makeStyles(fontFamily: string, accent: string) {
@@ -83,16 +82,6 @@ function makeStyles(fontFamily: string, accent: string) {
 
     note: { ...baseText, marginTop: 12, fontSize: 9, color: "#334155" },
     terms: { ...baseText, marginTop: 6, fontSize: 9, color: "#64748B" },
-
-    // Payment QR + bank-info row shown when invoice
-    payment: { marginTop: 16, flexDirection: "row", gap: 12, alignItems: "flex-start", border: `1 solid ${accent}`, borderRadius: 4, padding: 10, backgroundColor: "#F8FAFC" },
-    qrBox: { width: 90, alignItems: "center" },
-    qrImg: { width: 80, height: 80 },
-    qrLabel: { ...baseText, fontSize: 7, color: "#64748B", marginTop: 2, textAlign: "center" },
-    bankCol: { flex: 1 },
-    bankTitle: { ...baseText, fontSize: 9, fontWeight: 700, color: accent, marginBottom: 4 },
-    bankLine: { ...baseText, fontSize: 9, color: "#0B1F3A", lineHeight: 1.4 },
-
     signatures: { marginTop: 30, flexDirection: "row", justifyContent: "space-between", flexWrap: "wrap" },
     sigBox: { width: "48%", borderTop: "1 solid #94A3B8", paddingTop: 4, textAlign: "center", marginBottom: 10 },
     sigLabel: { ...baseText, fontSize: 8, color: "#475569" },
@@ -110,18 +99,9 @@ export function QuotationPDF({ data }: { data: QuotationPDFData }) {
   const styles = makeStyles(family, accent);
   const money = (n: number) => formatMoney(n, data.currency, data.language);
 
-  // ── Document title changes once the quotation is approved / converted ──────
-  // DRAFT / SENT / REJECTED / EXPIRED → "Quotation"
-  // APPROVED / CONVERTED              → "Invoice" / "ໃບເກັບເງິນ"
-  const isBilling = data.status === "APPROVED" || data.status === "CONVERTED";
-  const titleByLang = {
-    lo: { quotation: "ໃບສະເໜີລາຄາ", invoice: "ໃບເກັບເງິນ" },
-    th: { quotation: "ใบเสนอราคา", invoice: "ใบแจ้งหนี้"  },
-    en: { quotation: "Quotation",   invoice: "Invoice"     }
-  } as const;
-  const langKey = (data.language as keyof typeof titleByLang) in titleByLang
-    ? (data.language as keyof typeof titleByLang) : "en";
-  const docTitleText = isBilling ? titleByLang[langKey].invoice : titleByLang[langKey].quotation;
+  // Quotation PDFs always render as "Quotation" — Invoice/Receipt are issued
+  // from the Finance module, which has its own document templates.
+  const docTitleText = t("quotation.title");
 
   // Build full address from brand
   const brandAddrLine = [data.brand.address, data.brand.city, data.brand.province, data.brand.country]
@@ -222,31 +202,6 @@ export function QuotationPDF({ data }: { data: QuotationPDFData }) {
         {/* Note + Terms — explicit fontFamily prevents react-pdf font inheritance issue */}
         {data.note && <Text style={styles.note}>{data.note}</Text>}
         {data.termsText && <Text style={styles.terms}>{data.termsText}</Text>}
-
-        {/* Payment QR + bank info — only when this is an invoice/billing doc (#7) */}
-        {isBilling && (data.paymentQrDataUrl || data.brand.bankInfo) && (
-          <View style={styles.payment}>
-            {data.paymentQrDataUrl && (
-              <View style={styles.qrBox}>
-                <Image src={data.paymentQrDataUrl} style={styles.qrImg} />
-                <Text style={styles.qrLabel}>Scan to pay</Text>
-              </View>
-            )}
-            <View style={styles.bankCol}>
-              <Text style={styles.bankTitle}>
-                {langKey === "lo" ? "ຂໍ້ມູນການຊໍາລະເງິນ"
-                  : langKey === "th" ? "ข้อมูลการชำระเงิน"
-                  : "Payment Information"}
-              </Text>
-              {data.brand.bankInfo && (
-                <Text style={styles.bankLine}>{data.brand.bankInfo}</Text>
-              )}
-              <Text style={[styles.bankLine, { color: "#64748B", marginTop: 4 }]}>
-                Ref: {data.code}  •  Amount: {money(data.total)}
-              </Text>
-            </View>
-          </View>
-        )}
 
         {/* Dynamic signature slots from BrandSetting */}
         <View style={styles.signatures}>

@@ -39,6 +39,7 @@ export interface FinancePDFData {
   balance: number;
   note?: string | null;
   brand: BrandSnapshot;
+  paymentQrDataUrl?: string | null;   // PNG data URL — rendered next to bank info on invoices
 }
 
 function makeStyles(fontFamily: string, accent: string) {
@@ -86,9 +87,13 @@ function makeStyles(fontFamily: string, accent: string) {
     paymentsTitle: { ...base, fontSize: 9, color: "#64748B", textTransform: "uppercase", marginBottom: 4 },
     paymentRow: { flexDirection: "row", justifyContent: "space-between", paddingVertical: 2 },
     paymentText: { ...base, fontSize: 9 },
-    bankBox: { marginTop: 12, padding: 8, backgroundColor: "#F8FAFC", borderRadius: 4 },
+    bankBox: { marginTop: 12, padding: 8, backgroundColor: "#F8FAFC", borderRadius: 4, flexDirection: "row", gap: 10, alignItems: "flex-start" },
+    bankBoxText: { flex: 1 },
     bankTitle: { ...base, fontSize: 8, color: "#64748B", textTransform: "uppercase", marginBottom: 2 },
     bankText: { ...base, fontSize: 9, color: "#334155" },
+    bankQrBox: { width: 80, alignItems: "center" },
+    bankQrImg: { width: 76, height: 76 },
+    bankQrLabel: { ...base, fontSize: 7, color: "#64748B", marginTop: 2, textAlign: "center" },
     note: { ...base, marginTop: 12, fontSize: 9, color: "#334155" },
     signatures: { marginTop: 30, flexDirection: "row", justifyContent: "space-between", flexWrap: "wrap" },
     sigBox: { width: "48%", borderTop: "1 solid #94A3B8", paddingTop: 4, textAlign: "center", marginBottom: 10 },
@@ -234,11 +239,22 @@ export function FinanceDocumentPDF({ data }: { data: FinancePDFData }) {
           </View>
         )}
 
-        {/* Bank info — shown on Invoice / Billing Note when balance > 0 */}
+        {/* Bank info + payment QR — shown on Invoice / Billing Note when balance > 0 */}
         {data.brand.bankInfo && (data.docType === "INVOICE" || data.docType === "BILLING_NOTE") && data.balance > 0 && (
           <View style={styles.bankBox}>
-            <Text style={styles.bankTitle}>Payment to</Text>
-            <Text style={styles.bankText}>{data.brand.bankInfo}</Text>
+            <View style={styles.bankBoxText}>
+              <Text style={styles.bankTitle}>Payment to</Text>
+              <Text style={styles.bankText}>{data.brand.bankInfo}</Text>
+              <Text style={[styles.bankText, { marginTop: 4, color: "#64748B" }]}>
+                Ref: {data.code}  •  Amount: {money(data.balance)}
+              </Text>
+            </View>
+            {data.paymentQrDataUrl && (
+              <View style={styles.bankQrBox}>
+                <Image src={data.paymentQrDataUrl} style={styles.bankQrImg} />
+                <Text style={styles.bankQrLabel}>Scan to pay</Text>
+              </View>
+            )}
           </View>
         )}
 

@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { renderToBuffer } from "@react-pdf/renderer";
 import { FinanceDocumentPDF, type FinancePDFData } from "@/lib/pdf/finance-pdf";
 import { getBrand } from "@/lib/brand";
+import { generateQRDataUrl } from "@/lib/pdf/qr";
 import type { Locale } from "@/lib/i18n/config";
 import type { CurrencyCode } from "@/lib/currency";
 
@@ -26,6 +27,18 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
 
     const paymentsSum = doc.payments.reduce((s, p) => s + Number(p.amount), 0);
     const balance = Number(doc.total) - paymentsSum;
+
+    // Generate a "scan to pay" QR for unpaid invoices/billing notes (#7)
+    // — encodes brand bankInfo + reference code + outstanding balance so the
+    // customer can scan into any banking app that reads free-text QR.
+    const brand = await getBrand();
+    const showsQr = brand.bankInfo
+      && (doc.docType === "INVOICE" || doc.docType === "BILLING_NOTE")
+      && balance > 0;
+    const qrPayload = showsQr
+      ? `${brand.companyName}\n${brand.bankInfo}\nRef: ${doc.code}\nAmount: ${balance} ${doc.currency}`
+      : "";
+    const paymentQrDataUrl = showsQr ? await generateQRDataUrl(qrPayload, 260) : null;
 
     const data: FinancePDFData = {
       code: doc.code,
@@ -53,7 +66,8 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
       })),
       balance: Math.max(0, balance),
       note: payload.note ?? null,
-      brand: await getBrand()
+      brand,
+      paymentQrDataUrl
     };
 
     const buffer = await renderToBuffer(<FinanceDocumentPDF data={data} />);
