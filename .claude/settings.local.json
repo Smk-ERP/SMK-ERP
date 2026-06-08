@@ -72,7 +72,8 @@
       "Bash(git commit --allow-empty -m 'Fix git author email for Vercel deployment *)",
       "Bash(git commit -m 'Add Supabase SQL migration and seed files for production setup *)",
       "Bash(git commit -m 'Phase 1+2: Unit Price display, currency selector, workflow steps *)",
-      "Bash(git commit -m 'Phase 3: Calculator border + Fixed Price + PDF status title + Jobs items *)"
+      "Bash(git commit -m 'Phase 3: Calculator border + Fixed Price + PDF status title + Jobs items *)",
+      "Bash(git commit -m 'Phase 4: Payment QR code + bank info on invoice PDF *)"
     ]
   }
 }

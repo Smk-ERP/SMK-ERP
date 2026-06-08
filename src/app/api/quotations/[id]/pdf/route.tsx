@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { renderToBuffer } from "@react-pdf/renderer";
 import { QuotationPDF, type QuotationPDFData } from "@/lib/pdf/quotation-pdf";
 import { getBrand } from "@/lib/brand";
+import { generateQRDataUrl } from "@/lib/pdf/qr";
 import type { Locale } from "@/lib/i18n/config";
 import type { CurrencyCode } from "@/lib/currency";
 
@@ -21,6 +22,14 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
       getBrand()
     ]);
     if (!q) return NextResponse.json({ error: "Not found" }, { status: 404 });
+
+    // Generate payment QR for invoice-stage docs (APPROVED / CONVERTED) — encodes
+    // BrandSetting.bankInfo so customers can scan to see beneficiary details.
+    const isBilling = q.status === "APPROVED" || q.status === "CONVERTED";
+    const qrPayload = brand.bankInfo
+      ? `${brand.companyName}\n${brand.bankInfo}\nRef: ${q.code}\nAmount: ${Number(q.total)} ${q.currency}`
+      : "";
+    const paymentQrDataUrl = isBilling ? await generateQRDataUrl(qrPayload, 260) : null;
 
     const data: QuotationPDFData = {
       code: q.code,
@@ -53,7 +62,8 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
       total: Number(q.total),
       note: q.note,
       termsText: q.termsText,
-      brand
+      brand,
+      paymentQrDataUrl
     };
 
     const buffer = await renderToBuffer(<QuotationPDF data={data} />);
