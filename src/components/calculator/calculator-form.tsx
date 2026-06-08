@@ -78,6 +78,9 @@ export function CalculatorForm({
   const currency: CurrencyCode = displayCurrency ?? localCurrency;
   const $ = (v: number) => formatMoney(convert(v, "THB", currency), currency, locale);
 
+  // FIXED price mode disables every cost input (#5)
+  const isFixed = input.pricingMode === "FIXED";
+
   return (
     <div className="grid lg:grid-cols-3 gap-4">
       {/* Inputs */}
@@ -105,75 +108,79 @@ export function CalculatorForm({
             </div>
           </div>
 
-          <div className="border-t pt-4 grid sm:grid-cols-3 gap-3">
+          <div className={`border-t pt-4 grid sm:grid-cols-3 gap-3 ${isFixed ? "opacity-50" : ""}`}>
             <div className="space-y-1.5">
               <Label>{t("calculator.materialPerSqm")} (THB)</Label>
-              <Input type="number" value={input.materialPerSqm ?? ""} onChange={setNum("materialPerSqm")} />
+              <Input type="number" value={input.materialPerSqm ?? ""} onChange={setNum("materialPerSqm")} disabled={isFixed} />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Border / ຂອບເສັ້ນ (THB / m)</Label>
+              <Input type="number" value={input.borderPerMeter ?? ""} onChange={setNum("borderPerMeter")} disabled={isFixed} placeholder="e.g. 180" />
             </div>
             <div className="space-y-1.5">
               <Label>{t("calculator.ledModule")} (THB)</Label>
-              <Input type="number" value={input.ledModulePerMeter ?? ""} onChange={setNum("ledModulePerMeter")} />
+              <Input type="number" value={input.ledModulePerMeter ?? ""} onChange={setNum("ledModulePerMeter")} disabled={isFixed} />
             </div>
             <div className="space-y-1.5">
               <Label>LED density (m/m²)</Label>
-              <Input type="number" value={input.ledModuleDensity ?? ""} onChange={setNum("ledModuleDensity")} />
+              <Input type="number" value={input.ledModuleDensity ?? ""} onChange={setNum("ledModuleDensity")} disabled={isFixed} />
             </div>
 
             <div className="space-y-1.5">
               <Label>CNC (THB)</Label>
-              <Input type="number" value={input.cncCost ?? ""} onChange={setNum("cncCost")} />
+              <Input type="number" value={input.cncCost ?? ""} onChange={setNum("cncCost")} disabled={isFixed} />
             </div>
             <div className="space-y-1.5">
               <Label>CO₂ Laser (THB)</Label>
-              <Input type="number" value={input.co2LaserCost ?? ""} onChange={setNum("co2LaserCost")} />
+              <Input type="number" value={input.co2LaserCost ?? ""} onChange={setNum("co2LaserCost")} disabled={isFixed} />
             </div>
             <div className="space-y-1.5">
               <Label>Fiber Laser (THB)</Label>
-              <Input type="number" value={input.fiberLaserCost ?? ""} onChange={setNum("fiberLaserCost")} />
+              <Input type="number" value={input.fiberLaserCost ?? ""} onChange={setNum("fiberLaserCost")} disabled={isFixed} />
             </div>
 
             <div className="space-y-1.5">
               <Label>{t("calculator.labor")} (THB)</Label>
-              <Input type="number" value={input.laborCost ?? ""} onChange={setNum("laborCost")} />
+              <Input type="number" value={input.laborCost ?? ""} onChange={setNum("laborCost")} disabled={isFixed} />
             </div>
             <div className="space-y-1.5">
               <Label>{t("calculator.design")} (THB)</Label>
-              <Input type="number" value={input.designCost ?? ""} onChange={setNum("designCost")} />
+              <Input type="number" value={input.designCost ?? ""} onChange={setNum("designCost")} disabled={isFixed} />
             </div>
             <div className="space-y-1.5">
               <Label>{t("calculator.install")} (THB)</Label>
-              <Input type="number" value={input.installCost ?? ""} onChange={setNum("installCost")} />
+              <Input type="number" value={input.installCost ?? ""} onChange={setNum("installCost")} disabled={isFixed} />
             </div>
             <div className="space-y-1.5">
               <Label>{t("calculator.transport")} (THB)</Label>
-              <Input type="number" value={input.transportCost ?? ""} onChange={setNum("transportCost")} />
+              <Input type="number" value={input.transportCost ?? ""} onChange={setNum("transportCost")} disabled={isFixed} />
             </div>
             <div className="space-y-1.5">
               <Label>Electricity (THB)</Label>
-              <Input type="number" value={input.electricityCost ?? ""} onChange={setNum("electricityCost")} />
+              <Input type="number" value={input.electricityCost ?? ""} onChange={setNum("electricityCost")} disabled={isFixed} />
             </div>
           </div>
 
-          <div className="border-t pt-4 grid sm:grid-cols-3 gap-3">
+          <div className={`border-t pt-4 grid sm:grid-cols-3 gap-3 ${isFixed ? "opacity-50" : ""}`}>
             <div className="space-y-1.5">
               <Label>{t("calculator.wastePercent")}</Label>
-              <Input type="number" value={input.wastePercent ?? ""} onChange={setNum("wastePercent")} />
+              <Input type="number" value={input.wastePercent ?? ""} onChange={setNum("wastePercent")} disabled={isFixed} />
             </div>
             <div className="space-y-1.5">
               <Label>{t("calculator.overheadPercent")}</Label>
-              <Input type="number" value={input.overheadPercent ?? ""} onChange={setNum("overheadPercent")} />
+              <Input type="number" value={input.overheadPercent ?? ""} onChange={setNum("overheadPercent")} disabled={isFixed} />
             </div>
             <div className="space-y-1.5">
               <Label>{t("calculator.profitPercent")}</Label>
-              <Input type="number" value={input.profitPercent ?? ""} onChange={setNum("profitPercent")} />
+              <Input type="number" value={input.profitPercent ?? ""} onChange={setNum("profitPercent")} disabled={isFixed} />
             </div>
           </div>
 
           <div className="border-t pt-4 grid sm:grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label>Pricing mode</Label>
-              <div className="flex gap-2">
-                {(["MARKUP","MARGIN"] as const).map((m) => (
+              <div className="flex gap-2 flex-wrap">
+                {(["MARKUP","MARGIN","FIXED"] as const).map((m) => (
                   <Button
                     key={m}
                     type="button"
@@ -181,11 +188,27 @@ export function CalculatorForm({
                     size="sm"
                     onClick={() => set("pricingMode")(m)}
                   >
-                    {m === "MARKUP" ? t("calculator.useMarkup") : t("calculator.useMargin")}
+                    {m === "MARKUP" ? t("calculator.useMarkup")
+                      : m === "MARGIN" ? t("calculator.useMargin")
+                      : "Fix Price / ລາຄາຄົງທີ່"}
                   </Button>
                 ))}
               </div>
             </div>
+            {isFixed && (
+              <div className="space-y-1.5">
+                <Label>Fixed Price / ລາຄາຄົງທີ່ (THB, ກ່ອນ VAT)</Label>
+                <Input
+                  type="number"
+                  value={input.fixedPrice ?? ""}
+                  onChange={setNum("fixedPrice")}
+                  placeholder="e.g. 5000"
+                  className="font-semibold text-cyan-700"
+                  autoFocus
+                />
+                <p className="text-xs text-muted-foreground">ໃສ່ລາຄາສຸດທ້າຍໂດຍກົງ — ຄ່າຕົ້ນທຶນອື່ນທັງໝົດຈະບໍ່ມີຜົນ</p>
+              </div>
+            )}
             <div className="space-y-1.5">
               <Label>Markup presets</Label>
               <div className="flex flex-wrap gap-2">

@@ -99,6 +99,19 @@ export function QuotationPDF({ data }: { data: QuotationPDFData }) {
   const styles = makeStyles(family, accent);
   const money = (n: number) => formatMoney(n, data.currency, data.language);
 
+  // ── Document title changes once the quotation is approved / converted ──────
+  // DRAFT / SENT / REJECTED / EXPIRED → "Quotation"
+  // APPROVED / CONVERTED              → "Invoice" / "ໃບເກັບເງິນ"
+  const isBilling = data.status === "APPROVED" || data.status === "CONVERTED";
+  const titleByLang = {
+    lo: { quotation: "ໃບສະເໜີລາຄາ", invoice: "ໃບເກັບເງິນ" },
+    th: { quotation: "ใบเสนอราคา", invoice: "ใบแจ้งหนี้"  },
+    en: { quotation: "Quotation",   invoice: "Invoice"     }
+  } as const;
+  const langKey = (data.language as keyof typeof titleByLang) in titleByLang
+    ? (data.language as keyof typeof titleByLang) : "en";
+  const docTitleText = isBilling ? titleByLang[langKey].invoice : titleByLang[langKey].quotation;
+
   // Build full address from brand
   const brandAddrLine = [data.brand.address, data.brand.city, data.brand.province, data.brand.country]
     .filter(Boolean).join(", ");
@@ -108,7 +121,7 @@ export function QuotationPDF({ data }: { data: QuotationPDFData }) {
   const sigSlots = data.brand.signatureConfig?.QUOTATION ?? [{ label: "Customer" }, { label: "Authorized signature" }];
 
   return (
-    <Document title={`Quotation ${data.code}`} author={data.brand.companyName}>
+    <Document title={`${docTitleText} ${data.code}`} author={data.brand.companyName}>
       <Page size="A4" style={styles.page} wrap>
         {/* Header */}
         <View style={styles.header}>
@@ -123,7 +136,7 @@ export function QuotationPDF({ data }: { data: QuotationPDFData }) {
             </View>
           </View>
           <View>
-            <Text style={styles.docTitle}>{t("quotation.title")}</Text>
+            <Text style={styles.docTitle}>{docTitleText}</Text>
             <Text style={styles.docMeta}>{t("quotation.code")}: {data.code}</Text>
             <Text style={styles.docMeta}>{t("quotation.issueDate")}: {fmtDate(data.issueDate)}</Text>
             {data.validUntil && <Text style={styles.docMeta}>{t("quotation.validUntil")}: {fmtDate(data.validUntil)}</Text>}

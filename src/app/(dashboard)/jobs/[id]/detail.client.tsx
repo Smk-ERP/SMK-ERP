@@ -42,6 +42,11 @@ interface JobDTO {
   quotation: {
     id: string; code: string; total: number; currency: string;
     itemCount: number; signTypes: string[];
+    items: {
+      id: string; title: string; description: string | null; signType: string;
+      widthMm: number | null; heightMm: number | null;
+      quantity: number; unit: string; unitPrice: number; lineTotal: number;
+    }[];
   } | null;
   assignee: { id: string; name: string } | null;
   history: { id: string; from: string | null; to: string; by: string; at: string; note: string | null }[];
@@ -213,6 +218,63 @@ export function JobDetail({ job }: { job: JobDTO }) {
           </CardContent>
         </Card>
       </div>
+
+      {/* Production items list — derived from linked quotation (#8) */}
+      {job.quotation && job.quotation.items.length > 0 && (
+        <Card className="mt-4">
+          <CardHeader className="flex-row items-center justify-between">
+            <CardTitle>
+              {t("job.productionItems") ?? "ລາຍການຜະລິດ"}
+              <span className="ml-2 text-xs text-muted-foreground">
+                ({job.quotation.items.length} {job.quotation.itemCount === 1 ? "item" : "items"})
+              </span>
+            </CardTitle>
+            <Link href={`/quotations/${job.quotation.id}`} className="text-xs text-primary hover:underline">
+              {t("quotation.title")}: {job.quotation.code} →
+            </Link>
+          </CardHeader>
+          <CardContent>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="text-xs uppercase text-muted-foreground border-b">
+                  <tr>
+                    <th className="text-left py-2 px-2">#</th>
+                    <th className="text-left px-2">{t("quotation.items")}</th>
+                    <th className="text-left px-2">{t("calculator.signType") ?? "ປະເພດປ້າຍ"}</th>
+                    <th className="text-right px-2">Size (mm)</th>
+                    <th className="text-right px-2">Qty</th>
+                    <th className="text-right px-2">Unit</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {job.quotation.items.map((it, i) => (
+                    <tr key={it.id} className="border-b hover:bg-slate-50 dark:hover:bg-slate-900/30">
+                      <td className="py-2 px-2 font-mono text-xs">{i + 1}</td>
+                      <td className="px-2">
+                        <div className="font-medium">{it.title}</div>
+                        {it.description && (
+                          <div className="text-xs text-muted-foreground">{it.description}</div>
+                        )}
+                      </td>
+                      <td className="px-2">
+                        <Badge>{t(`signTypes.${it.signType}`) ?? it.signType}</Badge>
+                      </td>
+                      <td className="text-right px-2 font-mono text-xs">
+                        {it.widthMm && it.heightMm ? `${it.widthMm}×${it.heightMm}` : "—"}
+                      </td>
+                      <td className="text-right px-2 font-medium">{it.quantity}</td>
+                      <td className="text-right px-2 text-muted-foreground text-xs">{it.unit}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <p className="text-xs text-muted-foreground mt-3 italic">
+              💡 ລາຍການນີ້ມາຈາກໃບສະເໜີລາຄາ — ໃຊ້ສຳລັບການຜະລິດ
+            </p>
+          </CardContent>
+        </Card>
+      )}
 
       <div className="mt-4">
         <JobAttachments jobId={job.id} />

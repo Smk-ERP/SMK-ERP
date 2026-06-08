@@ -59,6 +59,7 @@ export interface CalcInput {
   materialPerSqm?: number;        // primary face material cost / m²
   materialPerSheet?: number;      // optional - per sheet (1.22 × 2.44 m)
   materialPerMeter?: number;      // optional - linear (e.g. neon flex)
+  borderPerMeter?: number;        // optional - sign edge/frame material per linear meter
   ledModulePerMeter?: number;     // e.g. 180 THB/m
   ledModuleDensity?: number;      // modules per m² (optional advanced)
 
@@ -83,7 +84,8 @@ export interface CalcInput {
   // Toggles
   includeInstall?: boolean;
   hasTax?: boolean;
-  pricingMode?: "MARKUP" | "MARGIN";
+  pricingMode?: "MARKUP" | "MARGIN" | "FIXED";   // FIXED: ignore all costs, use fixedPrice
+  fixedPrice?: number;                            // total price (before VAT) when pricingMode=FIXED
   channel?: "RETAIL" | "WHOLESALE"; // wholesale = -10% from final
 }
 
@@ -135,6 +137,12 @@ export function calculate(input: CalcInput): CalcResult {
     material += input.ledModulePerMeter * ledLengthM;
   }
 
+  // Sign border/edge frame (e.g. aluminum trim, lightbox rim) — perimeter × cost/m
+  if (input.borderPerMeter) {
+    const perimeterM = (widthM + heightM) * 2 * qty;
+    material += input.borderPerMeter * perimeterM;
+  }
+
   const machine = (input.cncCost ?? 0) + (input.co2LaserCost ?? 0) + (input.fiberLaserCost ?? 0);
   const electricity = input.electricityCost ?? 0;
   const labor = input.laborCost ?? 0;
@@ -150,7 +158,12 @@ export function calculate(input: CalcInput): CalcResult {
   const profitPct = input.profitPercent ?? 30;
   let priceBeforeTax: number;
   let profit: number;
-  if (input.pricingMode === "MARGIN") {
+  if (input.pricingMode === "FIXED") {
+    // Fixed price — user enters final selling price directly (excl. VAT). Profit
+    // is reverse-derived from cost basis so margin reporting still works.
+    priceBeforeTax = +(input.fixedPrice ?? 0).toFixed(2);
+    profit = +(priceBeforeTax - costBeforeProfit).toFixed(2);
+  } else if (input.pricingMode === "MARGIN") {
     // Margin: price = cost / (1 - margin%)
     const m = Math.min(0.95, profitPct / 100);
     priceBeforeTax = +(costBeforeProfit / (1 - m)).toFixed(2);

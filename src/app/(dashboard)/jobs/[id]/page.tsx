@@ -35,7 +35,19 @@ export default async function JobDetailPage({ params }: { params: { id: string }
           total: Number(job.quotation.total),
           currency: job.quotation.currency,
           itemCount: job.quotation.items.length,
-          signTypes: Array.from(new Set(job.quotation.items.map((it) => it.signType)))
+          signTypes: Array.from(new Set(job.quotation.items.map((it) => it.signType))),
+          items: job.quotation.items.map((it) => ({
+            id: it.id,
+            title: it.title,
+            description: it.description,
+            signType: it.signType,
+            widthMm: it.widthMm !== null ? Number(it.widthMm) : null,
+            heightMm: it.heightMm !== null ? Number(it.heightMm) : null,
+            quantity: Number(it.quantity),
+            unit: it.unit,
+            unitPrice: Number(it.unitPrice),
+            lineTotal: Number(it.lineTotal)
+          }))
         }
       : null,
     assignee: job.assignedTo ? { id: job.assignedTo.id, name: job.assignedTo.fullName } : null,
